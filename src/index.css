@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* Bengali font support */
+@font-face {
+  font-family: 'Bengali';
+  src: local('Noto Sans Bengali'), local('Hind Siliguri'), local('Bangla MN'), local('Bangla MN');
+}
+
+.font-bengali {
+  font-family: 'Noto Sans Bengali', 'Hind Siliguri', 'Bangla MN', 'Arial Unicode MS', sans-serif;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom focus styles for accessibility */
+*:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Radio button custom styles */
+input[type="radio"] {
+  appearance: none;
+}
