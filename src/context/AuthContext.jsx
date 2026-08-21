@@ -19,6 +19,11 @@ export function AuthProvider({ children }) {
     setSession(null);
   }, []);
 
+  // Merge fields into the current session user (e.g. after a profile update).
+  const patchUser = useCallback((partial) => {
+    setSession((s) => (s ? { ...s, user: { ...s.user, ...partial } } : s));
+  }, []);
+
   // Resolve an existing token on first load.
   useEffect(() => {
     let active = true;
@@ -56,6 +61,10 @@ export function AuthProvider({ children }) {
     [applyAuth]
   );
   const registerStudent = useCallback(async (data) => applyAuth(await authApi.registerStudent(data)), [applyAuth]);
+  const loginWithGoogle = useCallback(
+    async (credential, extra) => applyAuth(await authApi.loginWithGoogle(credential, extra)),
+    [applyAuth]
+  );
   const loginAdmin = useCallback(
     async (username, password) => applyAuth(await authApi.loginAdmin(username, password)),
     [applyAuth]
@@ -70,10 +79,12 @@ export function AuthProvider({ children }) {
       isAdmin: session?.role === 'admin',
       loginStudent,
       registerStudent,
+      loginWithGoogle,
       loginAdmin,
       logout,
+      patchUser,
     }),
-    [session, loading, loginStudent, registerStudent, loginAdmin, logout]
+    [session, loading, loginStudent, registerStudent, loginWithGoogle, loginAdmin, logout, patchUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

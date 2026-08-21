@@ -28,6 +28,8 @@ const examSchema = new mongoose.Schema(
     description: { type: String, default: '' },
     subject: { type: String, default: '' },
     grade: { type: String, default: '' },
+    // Admin-managed category slug (see Category model). '' = uncategorized.
+    category: { type: String, default: '', lowercase: true, trim: true },
     durationMinutes: { type: Number, required: true, min: 1 },
     questions: { type: [questionSchema], default: [] },
     published: { type: Boolean, default: false },
@@ -54,6 +56,7 @@ examSchema.methods.toMetaJSON = function toMetaJSON() {
     description: this.description,
     subject: this.subject,
     grade: this.grade,
+    category: this.category || '',
     durationMinutes: this.durationMinutes,
     questionCount: this.questions.length,
     totalMarks: this.totalMarks(),

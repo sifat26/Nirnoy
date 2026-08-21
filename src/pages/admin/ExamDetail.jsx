@@ -67,6 +67,12 @@ export default function ExamDetail() {
           <p className="text-slate-500 text-sm mt-0.5 font-mono">/{exam.slug}</p>
         </div>
         <div className="flex gap-2">
+          <Link
+            to={`/admin/exams/${id}/edit`}
+            className="text-sm font-medium px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+          >
+            Edit exam
+          </Link>
           <button onClick={copyLink} className="text-sm font-medium px-3 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors">
             {copied ? 'Copied!' : 'Copy link'}
           </button>

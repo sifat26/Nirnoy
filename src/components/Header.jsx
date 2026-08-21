@@ -12,10 +12,10 @@ export default function Header() {
       <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         <Link to="/" className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
-            Q
+            N
           </div>
           <div className="min-w-0">
-            <h1 className="text-base font-semibold text-slate-900 leading-tight truncate">MCQ Exam Platform</h1>
+            <h1 className="text-base font-semibold text-slate-900 leading-tight truncate">Nirnoy</h1>
             <p className="text-xs text-slate-500 truncate">Practice &amp; track your progress</p>
           </div>
         </Link>

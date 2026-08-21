@@ -5,6 +5,7 @@ import RequireAuth from './components/RequireAuth';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Welcome from './pages/Welcome';
 import Profile from './pages/Profile';
 import ExamStart from './pages/ExamStart';
 import ExamTake from './pages/ExamTake';
@@ -15,6 +16,8 @@ import AdminLayout from './pages/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
 import Exams from './pages/admin/Exams';
 import ExamDetail from './pages/admin/ExamDetail';
+import ExamEdit from './pages/admin/ExamEdit';
+import Categories from './pages/admin/Categories';
 import Students from './pages/admin/Students';
 import StudentDetail from './pages/admin/StudentDetail';
 
@@ -28,6 +31,14 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route
+              path="/welcome"
+              element={
+                <RequireAuth role="student">
+                  <Welcome />
+                </RequireAuth>
+              }
+            />
             <Route
               path="/me"
               element={
@@ -67,6 +78,8 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="exams" element={<Exams />} />
               <Route path="exams/:id" element={<ExamDetail />} />
+              <Route path="exams/:id/edit" element={<ExamEdit />} />
+              <Route path="categories" element={<Categories />} />
               <Route path="students" element={<Students />} />
               <Route path="students/:id" element={<StudentDetail />} />
             </Route>

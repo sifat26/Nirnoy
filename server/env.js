@@ -39,6 +39,11 @@ if (!jwtSecret) {
 // --- Anthropic / AI (unused in v1, wired for later) ---
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY || '';
 
+// --- Google Sign-In (optional) ---
+// Public OAuth Web Client ID. When set, POST /api/auth/google is enabled and
+// used both to verify ID tokens (audience) and by the frontend's Google button.
+const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
+
 export const env = {
   isProd,
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -54,4 +59,7 @@ export const env = {
   // future endpoints (see server/services/ai.js) light up without code changes.
   anthropicApiKey,
   aiEnabled: Boolean(anthropicApiKey),
+  // Google Sign-In lights up only when a Client ID is configured.
+  googleClientId,
+  googleEnabled: Boolean(googleClientId),
 };

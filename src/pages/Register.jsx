@@ -4,6 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 import { ErrorBanner } from '../components/ui';
 import { Spinner } from '../components/Spinner';
+import GoogleButton from '../components/GoogleButton';
+import { usePageMeta } from '../hooks/usePageMeta';
+
+const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
 function safeNext(raw) {
   if (raw && raw.startsWith('/') && !raw.startsWith('//')) return raw;
@@ -11,7 +15,8 @@ function safeNext(raw) {
 }
 
 export default function Register() {
-  const { registerStudent } = useAuth();
+  usePageMeta('Create account', 'Create your free Nirnoy account to take exams and track your progress across devices.');
+  const { registerStudent, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = safeNext(params.get('next'));
@@ -22,21 +27,44 @@ export default function Register() {
 
   const update = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
+  // New/returning students with no category yet go through onboarding first.
+  function goAfterAuth(res) {
+    if (res?.student && !res.student.category) {
+      navigate(`/welcome?next=${encodeURIComponent(next)}`, { replace: true });
+    } else {
+      navigate(next, { replace: true });
+    }
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      await registerStudent({
+      const res = await registerStudent({
         name: form.name.trim(),
         loginId: form.loginId.trim(),
         pin: form.pin,
         grade: form.grade.trim(),
         roll: form.roll.trim(),
       });
-      navigate(next, { replace: true });
+      goAfterAuth(res);
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError('Something went wrong', 0));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onGoogle(credential) {
+    setError(null);
+    setSubmitting(true);
+    try {
+      // Carry any class/roll the student already typed into the new account.
+      const res = await loginWithGoogle(credential, { grade: form.grade.trim(), roll: form.roll.trim() });
+      goAfterAuth(res);
+    } catch (err) {
+      setError(err instanceof ApiError ? err : new ApiError('Google sign-in failed', 0));
     } finally {
       setSubmitting(false);
     }
@@ -45,8 +73,8 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4 py-10">
       <Link to="/" className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-xl">Q</div>
-        <span className="text-lg font-semibold text-slate-900">MCQ Exam Platform</span>
+        <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-xl">N</div>
+        <span className="text-lg font-semibold text-slate-900">Nirnoy</span>
       </Link>
 
       <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-6 sm:p-8">
@@ -140,6 +168,17 @@ export default function Register() {
             Create account
           </button>
         </form>
+
+        {googleEnabled && (
+          <>
+            <div className="flex items-center gap-3 my-5">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-xs text-slate-400">or</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+            <GoogleButton onCredential={onGoogle} text="signup_with" />
+          </>
+        )}
 
         <p className="text-sm text-slate-500 mt-6 text-center">
           Already have an account?{' '}

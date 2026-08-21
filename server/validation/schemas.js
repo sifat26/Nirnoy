@@ -16,6 +16,20 @@ export function slugify(text) {
   return `exam-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Slugify a category name/slug WITHOUT a random fallback — returns '' when the
+ * input has no Latin characters. The admin route uses '' to require an explicit
+ * English slug (Bengali-only names can't produce a usable slug on their own).
+ */
+export function categorySlugify(text) {
+  return String(text || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+}
+
 export function detectLoginType(loginId) {
   if (EMAIL_RE.test(loginId)) return 'email';
   if (PHONE_RE.test(loginId)) return 'phone';
@@ -51,6 +65,40 @@ export const studentLoginSchema = z.object({
 export const adminLoginSchema = z.object({
   username: z.string().trim().min(1),
   password: z.string().min(1),
+});
+
+// Google Sign-In: the client sends the GIS ID token (a JWT credential). The
+// server verifies it — never trust its contents until verifyIdToken succeeds.
+export const googleAuthSchema = z.object({
+  credential: z.string().trim().min(10, 'Missing Google credential'),
+  grade: z.string().trim().max(40).optional().default(''),
+  roll: z.string().trim().max(40).optional().default(''),
+});
+
+// Student self-update (PATCH /api/me). All fields optional; category '' clears it.
+export const meUpdateSchema = z.object({
+  name: z.string().trim().min(2, 'name must be at least 2 characters').max(80).optional(),
+  grade: z.string().trim().max(40).optional(),
+  roll: z.string().trim().max(40).optional(),
+  category: z.string().trim().toLowerCase().max(40).optional(),
+});
+
+// ---------- Categories (admin-managed) ----------
+
+export const categoryCreateSchema = z.object({
+  name: z.string().trim().min(1, 'name is required').max(60),
+  nameBn: z.string().trim().max(60).optional().default(''),
+  slug: z.string().trim().toLowerCase().max(40).optional().default(''),
+  order: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  active: z.boolean().optional().default(true),
+});
+
+// Slug is intentionally omitted — it is immutable once created.
+export const categoryUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  nameBn: z.string().trim().max(60).optional(),
+  order: z.coerce.number().int().min(0).max(9999).optional(),
+  active: z.boolean().optional(),
 });
 
 // ---------- Exam upload / create ----------

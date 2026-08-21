@@ -9,11 +9,19 @@ export const adminReplaceExam = (id, payload) => api.put(`/admin/exams/${id}`, p
 export const adminDeleteExam = (id) => api.del(`/admin/exams/${id}`);
 export const adminExamAttempts = (id) => api.get(`/admin/exams/${id}/attempts`);
 
-export const adminUploadExam = (file) => {
+export const adminUploadExam = (file, category = '') => {
   const form = new FormData();
+  // Append text fields BEFORE the file so multer reliably exposes them on req.body.
+  if (category) form.append('category', category);
   form.append('file', file);
   return api.upload('/admin/exams/upload', form);
 };
+
+// ---- Categories ----
+export const adminListCategories = () => api.get('/admin/categories');
+export const adminCreateCategory = (payload) => api.post('/admin/categories', payload);
+export const adminUpdateCategory = (id, patch) => api.patch(`/admin/categories/${id}`, patch);
+export const adminDeleteCategory = (id) => api.del(`/admin/categories/${id}`);
 
 // ---- Students ----
 export const adminListStudents = () => api.get('/admin/students');

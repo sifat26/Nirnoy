@@ -11,6 +11,7 @@ import authRoutes from './routes/auth.js';
 import examRoutes from './routes/exams.js';
 import attemptRoutes from './routes/attempts.js';
 import meRoutes from './routes/me.js';
+import categoryRoutes from './routes/categories.js';
 import adminRoutes from './routes/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,6 +30,7 @@ api.use('/auth', authRoutes);
 api.use('/exams', examRoutes);
 api.use('/attempts', attemptRoutes);
 api.use('/me', meRoutes);
+api.use('/categories', categoryRoutes);
 api.use('/admin', adminRoutes);
 app.use('/api', api);
 

@@ -1,26 +1,50 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { myAttempts } from '../api';
+import { myAttempts, listCategories, updateMe } from '../api';
 import { ApiError } from '../api/client';
 import Header from '../components/Header';
 import { Spinner } from '../components/Spinner';
 import { StatTile, EmptyState, ErrorBanner, Badge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
+import { categoryLabel } from '../lib/categories';
+import { usePageMeta } from '../hooks/usePageMeta';
 import { formatDate, formatDuration, initials, scoreColor } from '../lib/format';
 
 export default function Profile() {
-  const { user } = useAuth();
+  usePageMeta('My Profile', 'Your Nirnoy profile, exam history, and preferred category.');
+  const { user, patchUser } = useAuth();
   const navigate = useNavigate();
   const [attempts, setAttempts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [avatarError, setAvatarError] = useState(false);
+  const [savingCat, setSavingCat] = useState(false);
+  const [catError, setCatError] = useState(null);
 
   useEffect(() => {
     myAttempts()
       .then((data) => setAttempts(data.attempts || []))
       .catch((err) => setError(err instanceof ApiError ? err : new ApiError('Failed to load history', 0)))
       .finally(() => setLoading(false));
+    listCategories()
+      .then((data) => setCategories(data.categories || []))
+      .catch(() => setCategories([]));
   }, []);
+
+  async function onChangeCategory(e) {
+    const slug = e.target.value;
+    setCatError(null);
+    setSavingCat(true);
+    try {
+      const { student } = await updateMe({ category: slug });
+      patchUser({ category: student.category });
+    } catch (err) {
+      setCatError(err instanceof ApiError ? err.message : 'Failed to update category');
+    } finally {
+      setSavingCat(false);
+    }
+  }
 
   const count = attempts.length;
   const avg = count ? Math.round(attempts.reduce((s, a) => s + (a.percentage || 0), 0) / count) : 0;
@@ -33,17 +57,56 @@ export default function Profile() {
       <main className="max-w-3xl mx-auto px-4 py-8">
         {/* Profile card */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 mb-6 flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold shrink-0">
-            {initials(user?.name)}
-          </div>
+          {user?.avatarUrl && !avatarError ? (
+            <img
+              src={user.avatarUrl}
+              alt={user?.name || 'Profile'}
+              referrerPolicy="no-referrer"
+              onError={() => setAvatarError(true)}
+              className="w-16 h-16 rounded-full object-cover shrink-0"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold shrink-0">
+              {initials(user?.name)}
+            </div>
+          )}
           <div className="min-w-0">
             <h1 className="text-xl font-bold text-slate-900 truncate">{user?.name}</h1>
             <p className="text-sm text-slate-500 truncate">{user?.loginId}</p>
             <div className="flex flex-wrap gap-1.5 mt-2">
+              {user?.provider === 'google' && <Badge color="emerald">Google account</Badge>}
+              {user?.category && <Badge color="blue">{categoryLabel(user.category, categories)}</Badge>}
               {user?.grade && <Badge color="slate">Class: {user.grade}</Badge>}
               {user?.roll && <Badge color="slate">Roll: {user.roll}</Badge>}
             </div>
           </div>
+        </div>
+
+        {/* Preferred category */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 mb-6">
+          <label htmlFor="category" className="block text-sm font-medium text-slate-700 mb-1.5">
+            Exam category
+          </label>
+          <div className="flex items-center gap-3">
+            <select
+              id="category"
+              value={user?.category || ''}
+              onChange={onChangeCategory}
+              disabled={savingCat}
+              className="flex-1 px-3 py-2.5 rounded-lg border border-slate-300 focus:border-emerald-500 outline-none text-slate-900 bg-white disabled:opacity-60"
+            >
+              <option value="">All categories (not set)</option>
+              {categories.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.name}
+                  {c.nameBn ? ` — ${c.nameBn}` : ''}
+                </option>
+              ))}
+            </select>
+            {savingCat && <Spinner className="w-5 h-5 shrink-0" />}
+          </div>
+          {catError && <p className="text-xs text-red-600 mt-1.5">{catError}</p>}
+          <p className="text-xs text-slate-400 mt-1.5">Your home page opens on this category. Change it anytime.</p>
         </div>
 
         {/* Stats */}

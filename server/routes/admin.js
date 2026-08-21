@@ -5,15 +5,20 @@ import { requireAdmin } from '../middleware/auth.js';
 import { Exam } from '../models/Exam.js';
 import { Attempt } from '../models/Attempt.js';
 import { Student } from '../models/Student.js';
+import { Category } from '../models/Category.js';
 import { NotFoundError, ValidationError } from '../lib/errors.js';
 import { normalizeExamInput, slugify } from '../validation/schemas.js';
 import { toCsv } from '../lib/csv.js';
 import { parseJsonLoose } from '../lib/json.js';
+import adminCategoriesRouter from './adminCategories.js';
 
 const router = Router();
 
 // Every admin route requires a valid admin token.
 router.use(requireAdmin);
+
+// Admin-managed exam categories (CRUD). Inherits requireAdmin above.
+router.use('/categories', adminCategoriesRouter);
 
 // ---------- helpers ----------
 
@@ -63,9 +68,20 @@ function toAdminExamJSON(exam, stats) {
   };
 }
 
-async function createExamFromInput(raw, adminId) {
+/** Normalize + validate a category slug against known categories. '' clears it. */
+async function resolveCategory(slug) {
+  const c = String(slug ?? '').trim().toLowerCase();
+  if (!c) return '';
+  if (!(await Category.exists({ slug: c }))) {
+    throw new ValidationError(`Unknown category "${c}". Create it first or leave it blank.`);
+  }
+  return c;
+}
+
+async function createExamFromInput(raw, adminId, category) {
   const normalized = normalizeExamInput(raw);
   normalized.slug = await uniqueSlug(normalized.slug);
+  normalized.category = await resolveCategory(category);
   return Exam.create({ ...normalized, createdBy: adminId });
 }
 
@@ -94,7 +110,7 @@ router.get(
 router.post(
   '/exams',
   asyncHandler(async (req, res) => {
-    const exam = await createExamFromInput(req.body, req.admin._id);
+    const exam = await createExamFromInput(req.body, req.admin._id, req.body.category);
     res.status(201).json({ exam: toAdminExamJSON(exam) });
   })
 );
@@ -111,7 +127,7 @@ router.post(
     } catch {
       throw new ValidationError('The uploaded file is not valid JSON');
     }
-    const exam = await createExamFromInput(parsed, req.admin._id);
+    const exam = await createExamFromInput(parsed, req.admin._id, req.body.category);
     res.status(201).json({ exam: toAdminExamJSON(exam) });
   })
 );
@@ -146,6 +162,9 @@ router.patch(
     for (const key of EDITABLE) {
       if (key in req.body) exam[key] = req.body[key];
     }
+    if ('category' in req.body) {
+      exam.category = await resolveCategory(req.body.category);
+    }
     if (req.body.slug) {
       exam.slug = await uniqueSlug(slugify(req.body.slug), exam._id);
     }
@@ -172,6 +191,9 @@ router.put(
     exam.shuffleQuestions = normalized.shuffleQuestions;
     exam.shuffleOptions = normalized.shuffleOptions;
     exam.questions = normalized.questions;
+    if ('category' in req.body) {
+      exam.category = await resolveCategory(req.body.category);
+    }
     if ('published' in req.body) exam.published = Boolean(req.body.published);
     await exam.save();
     res.json({ exam: toAdminExamJSON(exam) });

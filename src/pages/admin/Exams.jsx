@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { adminListExams, adminCreateExam, adminUploadExam, adminUpdateExam, adminDeleteExam } from '../../api';
+import { adminListExams, adminCreateExam, adminUploadExam, adminUpdateExam, adminDeleteExam, adminListCategories } from '../../api';
 import { ApiError } from '../../api/client';
 import { Spinner } from '../../components/Spinner';
 import { EmptyState, ErrorBanner, Badge } from '../../components/ui';
+import { categoryLabel } from '../../lib/categories';
+import { useExamFormState, emptyExamState, stateToUploadObject, FormEditor, TabButton } from '../../components/ExamForm';
 
 const SAMPLE = `{
   "examTitle": "Sample Quiz",
@@ -23,18 +25,21 @@ const SAMPLE = `{
 
 export default function Exams() {
   const [exams, setExams] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [showNew, setShowNew] = useState(false);
-  const [mode, setMode] = useState('paste'); // paste | upload
+  const [mode, setMode] = useState('form'); // form | paste | upload
   const [jsonText, setJsonText] = useState('');
   const [file, setFile] = useState(null);
+  const [category, setCategory] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const fileInputRef = useRef(null);
+  const createForm = useExamFormState(emptyExamState());
 
   async function load() {
     setLoading(true);
@@ -51,13 +56,19 @@ export default function Exams() {
 
   useEffect(() => {
     load();
+    // Category options are optional metadata — never block the exam list on them.
+    adminListCategories()
+      .then((data) => setCategories(data.categories || []))
+      .catch(() => setCategories([]));
   }, []);
 
   function resetNew() {
     setShowNew(false);
     setJsonText('');
     setFile(null);
+    setCategory('');
     setCreateError(null);
+    createForm.reset(emptyExamState());
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -65,9 +76,11 @@ export default function Exams() {
     setCreateError(null);
     setCreating(true);
     try {
-      if (mode === 'upload') {
+      if (mode === 'form') {
+        await adminCreateExam(stateToUploadObject(createForm.meta, createForm.questions));
+      } else if (mode === 'upload') {
         if (!file) throw new ApiError('Please choose a .json file', 0);
-        await adminUploadExam(file);
+        await adminUploadExam(file, category);
       } else {
         let payload;
         try {
@@ -75,7 +88,7 @@ export default function Exams() {
         } catch {
           throw new ApiError('That is not valid JSON. Check for trailing commas or quotes.', 0);
         }
-        await adminCreateExam(payload);
+        await adminCreateExam({ ...payload, category });
       }
       resetNew();
       await load();
@@ -138,11 +151,53 @@ export default function Exams() {
       {showNew && (
         <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
           <div className="flex gap-2 mb-4">
+            <TabButton active={mode === 'form'} onClick={() => setMode('form')}>Build with form</TabButton>
             <TabButton active={mode === 'paste'} onClick={() => setMode('paste')}>Paste JSON</TabButton>
             <TabButton active={mode === 'upload'} onClick={() => setMode('upload')}>Upload file</TabButton>
           </div>
 
-          {mode === 'paste' ? (
+          {mode !== 'form' && (
+            <div className="mb-4">
+              <label htmlFor="exam-category" className="block text-sm font-medium text-slate-700 mb-1">
+                Category
+              </label>
+              <select
+                id="exam-category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full sm:w-64 px-3 py-2.5 rounded-lg border border-slate-300 focus:border-emerald-500 outline-none text-slate-900 bg-white"
+              >
+                <option value="">Uncategorized</option>
+                {categories.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.name}
+                    {c.nameBn ? ` — ${c.nameBn}` : ''}
+                    {c.active ? '' : ' (hidden)'}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-400 mt-1">
+                Applies to both paste and upload. Overrides any <code>category</code> field in the JSON.
+              </p>
+            </div>
+          )}
+
+          {mode === 'form' ? (
+            <FormEditor
+              meta={createForm.meta}
+              questions={createForm.questions}
+              categories={categories}
+              updateMeta={createForm.updateMeta}
+              updateQuestion={createForm.updateQuestion}
+              updateOption={createForm.updateOption}
+              updateOptionKey={createForm.updateOptionKey}
+              addOption={createForm.addOption}
+              removeOption={createForm.removeOption}
+              addQuestion={createForm.addQuestion}
+              removeQuestion={createForm.removeQuestion}
+              moveQuestion={createForm.moveQuestion}
+            />
+          ) : mode === 'paste' ? (
             <div>
               <textarea
                 value={jsonText}
@@ -185,7 +240,9 @@ export default function Exams() {
               Cancel
             </button>
           </div>
-          <p className="text-xs text-slate-400 mt-3">New exams start unpublished. Publish when you're ready to share.</p>
+          {mode !== 'form' && (
+            <p className="text-xs text-slate-400 mt-3">New exams start unpublished. Publish when you're ready to share.</p>
+          )}
         </div>
       )}
 
@@ -206,6 +263,7 @@ export default function Exams() {
                       {exam.title}
                     </Link>
                     {exam.published ? <Badge color="emerald">Published</Badge> : <Badge color="amber">Draft</Badge>}
+                    {exam.category && <Badge color="blue">{categoryLabel(exam.category, categories)}</Badge>}
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-500">
                     <span>{exam.questionCount} questions</span>
@@ -234,6 +292,12 @@ export default function Exams() {
                   {copiedId === exam.id ? 'Copied!' : 'Copy link'}
                 </button>
                 <Link
+                  to={`/admin/exams/${exam.id}/edit`}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                >
+                  Edit
+                </Link>
+                <Link
                   to={`/admin/exams/${exam.id}`}
                   className="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
                 >
@@ -252,18 +316,5 @@ export default function Exams() {
         </div>
       )}
     </div>
-  );
-}
-
-function TabButton({ active, onClick, children }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-        active ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-      }`}
-    >
-      {children}
-    </button>
   );
 }
